@@ -1,0 +1,361 @@
+#!/usr/local/bin/slic
+
+; TIC-TAC-TOE (2023.02.13)
+;
+(program
+
+  ; Gives the opponent of the side 'who' (1: X, 2: O)
+  (def opponent (who) (- 3 who))
+
+  ; Gives the character for the side 'who'.
+  (def sidestring (who)
+    (if (= who 1)
+      "X"
+    else
+      (if (= who 2)
+        "O"
+      else
+        " "
+      )
+    )
+  )
+
+  ; Recursive map
+  (def map (f l)
+    (if l
+      (newcell (f (bite l)) (map f l) )
+    else
+      nil
+    )
+  )
+
+  (def printhexlist (l)
+    (while l
+      (put (string (bite l) 16 10))
+      (if l (put " "))
+    )
+    (print)
+  )
+
+  ; Set some digits in an hexadecimal number.
+  ; - l: list of digits to set (digits numbers start at 0).
+  ; - v value to give to all the digits in l.
+  ;
+  ; Returns the number, with all hex digits in l set to v.
+  ;
+  (def hexfromlist (l v)
+    (let (h 0  digit 0)
+      (while l
+        (set digit (bite l))
+        (set h (sethexdigit digit h v))
+      )
+      h
+    )
+  )
+
+  ; Create a list of hex numbers that can be used in conjunction with hasnzhexdigits to quickly test if
+  ; a side has won.
+  ;
+  (def listofwinningmasksfor (who)
+    (let (l nil  mask 0  sqlist nil  f nil)
+      (set sqlist
+        (list
+          (list 1 2 3) (list 4 5 6) (list 7 8 9)  ; Rows
+          (list 1 4 7) (list 2 5 8) (list 3 6 9)  ; Columns
+          (list 1 5 9) (list 3 5 7)               ; Diagonals
+        )
+      )
+      (while sqlist
+        (set f (bite sqlist))
+        (set mask (hexfromlist f who))
+        (set l (newcell mask l))
+      )
+      l
+    )
+  )
+
+  (def createwinningmasks ()
+    (set winmasklist1 (listofwinningmasksfor 1))
+    (set winmasklist2 (listofwinningmasksfor 2))
+    ;(printhexlist winmasklist1)
+    ;(printhexlist winmasklist2)
+  )
+
+  ; 2023.02.16: This is a faster version of haswon:
+  (def haswon (board who)
+    (walk (if (= who 1) winmasklist1 else winmasklist2) p (mask)
+      (if (hasnzhexdigits mask board) (return 1)) ;$hex
+    )
+    nil
+  )
+
+  ; Tells if the side 'w' has won the game on the board 'b'.
+  ;
+  (def slowhaswon (b w)
+    (or (and (= (hexdigit 1 b) w) (= (hexdigit 5 b) w) (= (hexdigit 9 b) w))
+        (and (= (hexdigit 3 b) w) (= (hexdigit 5 b) w) (= (hexdigit 7 b) w))
+        (and (= (hexdigit 1 b) w) (= (hexdigit 2 b) w) (= (hexdigit 3 b) w))
+        (and (= (hexdigit 4 b) w) (= (hexdigit 5 b) w) (= (hexdigit 6 b) w))
+        (and (= (hexdigit 7 b) w) (= (hexdigit 8 b) w) (= (hexdigit 9 b) w))
+        (and (= (hexdigit 1 b) w) (= (hexdigit 4 b) w) (= (hexdigit 7 b) w))
+        (and (= (hexdigit 2 b) w) (= (hexdigit 5 b) w) (= (hexdigit 8 b) w))
+        (and (= (hexdigit 3 b) w) (= (hexdigit 6 b) w) (= (hexdigit 9 b) w))
+    )
+  )
+
+  ; Test if the game is over, and if so tells who has won.
+  ; Returns
+  ;   nil  if the game is not over,
+  ;    1   if X has won
+  ;    2   if O has won
+  ;    0   if no side as won.
+  ;
+  (def gameover? (board)
+    (if (haswon board 1)
+      1
+    else
+      (if (haswon board 2)
+        2
+      else
+        ; Is there any empty square left?
+        (for (d 1 9)
+          (if (= (hexdigit d board) 0)
+            (return nil)
+          )
+        )
+        0 ; Full => draw
+      )
+    )
+  )
+
+  (def getboard (board l c &square)
+    (set square (+ (+ (* (- l 1) 3) (- c 1)) 1))
+    (hexdigit square board) ;$hex
+  )
+
+  ; Prints the board.
+  ; If 'big', prints a big version of the board.
+  ;
+  (def printboard (board big)
+    (if big
+      (for (l 1 3)
+        (for (subl 1 4)
+          (for (c 1 3)
+            (let (square nil  cont nil)
+              (set cont (getboard board l c square))
+              (put "    ")
+              (if (= subl 4) (put "     ")
+              else
+                (if (= cont 0)
+                  (if (= subl 2) (put "  " square "  ") else (put "     "))
+                else
+                  (if (= cont 1)
+                    (if (= subl 1)        (put " \\ / ")
+                    else  (if (= subl 2)  (put "  X  ")
+                          else            (put " / \\ ") ) )
+                  else
+                    (if (= subl 1)        (put "  _  ")
+                    else  (if (= subl 2)  (put " (_) ")
+                          else            (put "     ") ) )
+                  )
+                )
+              )
+            )
+          )
+          (print)
+        )
+      )
+    else
+      (for (l 1 3)
+        (put " ")
+        (for (c 1 3)
+          (let (square nil  cont nil)
+            (set cont (getboard board l c square))
+            (put  " ")
+            (if (= cont 0)
+              (put " " square)
+            else
+              (put " " (sidestring cont))
+            )
+          )
+        )
+        (print)
+      )
+    )
+  )
+
+  ; Plays at random.
+  ; Returns a move (1..9), or 0 if the board is full.
+  (def randomplay (board who)
+    (for (d 1 9)
+      (if (= (hexdigit d board) 0) ;$hex
+        (return d)
+      )
+    )
+    ; Board full
+    nil
+  )
+
+  ; Plays very badly.
+  ; Returns a move (1..9), or 0 if the board is full.
+  ; On exit, score is set to 100 if the move wins.
+  (def childplay (board who &score)
+    (for (d 1 9)
+      (if (= (hexdigit d board) 0)  ;$hex
+        (let (board (sethexdigit d board who)) ;$hex
+          (if (haswon board who)
+            (set score 100)
+            (return d)
+          )
+        )
+      )
+    )
+    (randomplay board who)
+  )
+
+  ; Recursive minimax search.
+  ;
+  ;   board: current board position.
+  ;
+  ;   who: who can play the next move in this position (1: X, 2: O).
+  ;
+  ;   depth: current search depth. Call this function with 0 when you are in the game position.
+  ;
+  ;   maxdepth: maximum depth to recursively search. The more, the better, but 4 is enough.
+  ;
+  ;   score: on exit, will receive the score.
+  ;          - A positive number if the move wins (the number of moves to the win is 100 minus this number)
+  ;          - 0 if it is (or will be) a draw, or if the search has not been able to go deep enough.
+  ;          - A negative number if the move loses (the number of moves to the loss is 100 plus this number)
+  ;
+  ; Returns a move (1..9) and sets 'score'
+  ;      or nil if the board is full.
+  ;
+  (def perfectplay (board who depth maxdepth &score)
+    (let (bestmove nil  bestscore -100  s 0)
+      ; We generate moves in a predefined, optimal order.
+      (walk '(5 1 3 7 9 2 4 6 8) p (move)
+        (if (= (hexdigit move board) 0) ;$hex
+          ; Try to move here
+          (let (board (sethexdigit move board who)) ;$hex
+            (inc nbpos)
+            (if (haswon board who)
+              (set score (- 100 depth))
+              (return move)
+            )
+            (if (< depth maxdepth)
+              (perfectplay board (opponent who) (+ depth 1) maxdepth s) ; We just care about s
+              (update s (- _)) ; score, from the current side's point of wiew.
+              (if (or (not bestmove) (> s bestscore))
+                ; We have a new best move (even if it loses):
+                (set bestmove move)
+                (set bestscore s)
+              )
+            )
+          )
+        )
+      )
+      (if bestmove  (set score bestscore)
+      else          (set score 0) )           ; No more moves => draw.
+      bestmove ; Return that.
+    )
+  )
+
+  ;---------------------------------------------------------------------------
+  ;
+  ; Main program.
+  ;
+  ;---------------------------------------------------------------------------
+  ;
+  (for (c 1 50) (print))
+  (print "Welcome to Slic-tac-toe, a new, complex and exciting strategy game.")
+  (print)
+
+  (set trace nil)
+  (set showstats 1)     ; Set to print the analysis statistics: number of positions searched, positions per second...
+  (set showscore 1)     ; Set to show the score (and number of moves to the end of the game).
+  (set slowfactor 20)   ; How many times we should repeat the search to slow the program down.
+  (set bigboard 1)      ; Set to print the big version of the board.
+  (set nasty nil)       ; Set to display a message when the program sees that it will win.
+  (set said nil)
+
+  (createwinningmasks)
+  (set board 0)
+  (set who 2)           ; Who plays first (1: X=human, 2: O=computer)
+
+  (while (not (set gameover (gameover? board)))
+    (set move nil)
+    (if (= who 2)
+      ; Computer's turn
+      (set score 0)
+      (set nbpos 0)
+      (set t0 (musec))
+      ;(set move (randomplay board who))
+      ;(set move (childplay board who score))
+      (set repeatsearch (if showstats slowfactor else 1))
+      (for (i 1 repeatsearch)
+        (set move (perfectplay board who 0 20 score))
+      )
+      (set t (musec))
+      (set analysistime (/ (float (- t t0)) 1000000) )
+      (if (!= analysistime 0)
+        (set positionspersecond (+ (/ (float nbpos) analysistime) 0.5))
+      else
+        (set positionspersecond 1)
+      )
+      (if (and showstats (!= analysistime 0))
+        (print nbpos " positions analyzed, Analysis time: " analysistime  "s, " (/ positionspersecond 1000000) "Mp/s")
+      )
+      (print)
+      (if move
+        (if showscore
+          (if (!= score 0) (print "score=" score ", game over in " (if (> score 0) (- 100 score) else (+ 100 score)))
+          else             (print "score=" score)
+          )
+          (print)
+        )
+        (print "Computer plays at " move)
+        (if (and nasty (> score 0) (not said)) (print "...and you are going to lose."))
+        (if (> score 0) (set said 1))
+        (print)
+      )
+    else
+      ; User plays
+      (printboard board bigboard)
+      (print)
+      (put "Move for " (sidestring who) ", or \"q\" to quit: ")
+      (set move (input))
+      (print)
+      (if (= move "q") (break))
+      (set move (integer move))
+      (if (or (not move) (< move 1) (> move 9))
+        (print "Please enter a number between 1 and 9, or \"q\" to quit the game.")
+        (print)
+        (set move nil)
+      )
+    )
+    (if move
+      ; Here, move is an int between 1 and 9.
+      (if (!= (hexdigit move board) 0) ;$hex
+        (print "Sorry, this square has already been played. Try again.")
+      else
+        (set board (sethexdigit move board who)) ;$hex
+        (set who (opponent who))
+      )
+    )
+  )
+  (print "========================================")
+  (print)
+  (if gameover
+    (put "GAME OVER. ")
+    (if (= gameover 0)        (print "DRAW.")
+    else  (if (= gameover 1)  (print "X WINS!")
+          else                (print "O wins.") )
+    )
+  else
+    (print "OK... Bye.")
+  )
+  (print)
+  (printboard board bigboard)
+
+)
